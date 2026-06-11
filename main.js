@@ -2,22 +2,9 @@ const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const Store = require('electron-store');
-const { checkQpdf, unlockPdf } = require('./pdf-service');
-
-const IPC_CHANNELS = {
-  CHECK_QPDF: 'check-qpdf',
-  UNLOCK_PDF: 'unlock-pdf',
-  UNLOCK_BATCH: 'unlock-batch',
-  SELECT_OUTPUT_DIR: 'select-output-dir',
-  OPEN_OUTPUT_DIR: 'open-output-dir',
-  GET_SETTINGS: 'get-settings',
-  SET_SETTINGS: 'set-settings',
-  GET_HISTORY: 'get-history',
-  ADD_HISTORY: 'add-history',
-  CLEAR_HISTORY: 'clear-history',
-  SAVE_OUTPUT_DIR: 'save-output-dir',
-  COPY_FILES: 'copy-files',
-};
+const { checkQpdf, unlockPdf, convertPdf } = require('./pdf-service');
+const { compressImage, convertImage, resizeImage, removeBackground } = require('./image-service');
+const { excelToCsv } = require('./data-service');
 
 const store = new Store({
   defaults: {
@@ -32,10 +19,8 @@ let mainWindow = null;
 
 function getDefaultOutputDir() {
   const docsPath = app.getPath('documents');
-  const dir = path.join(docsPath, 'Unlocked PDFs');
-  if (!fs.existsSync(dir)) {
-    try { fs.mkdirSync(dir, { recursive: true }); } catch (e) {}
-  }
+  const dir = path.join(docsPath, 'Utility_ToolVault Outputs');
+  if (!fs.existsSync(dir)) { try { fs.mkdirSync(dir, { recursive: true }); } catch (e) {} }
   return dir;
 }
 
@@ -45,11 +30,11 @@ function getOutputDir() {
 
 function createWindow() {
   mainWindow = new BrowserWindow({
-    width: 940,
-    height: 720,
-    minWidth: 680,
-    minHeight: 520,
-    title: 'Manish PDF Unlocker',
+    width: 1200,
+    height: 800,
+    minWidth: 900,
+    minHeight: 600,
+    title: 'Utility ToolVault',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -96,40 +81,42 @@ app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
 });
 
-ipcMain.handle(IPC_CHANNELS.CHECK_QPDF, async () => {
+ipcMain.handle('check-qpdf', async () => {
   return await checkQpdf();
 });
 
-ipcMain.handle(IPC_CHANNELS.UNLOCK_PDF, async (_event, { filePath, password }) => {
+ipcMain.handle('unlock-pdf', async (_event, { filePath, password }) => {
   const outDir = getOutputDir();
   const finalOutput = path.join(outDir, path.basename(filePath, '.pdf') + '_unlocked.pdf');
   await unlockPdf({ filePath, password, outputPath: finalOutput });
-
   const history = store.get('history', []);
   history.unshift({ file: path.basename(filePath), output: finalOutput, timestamp: new Date().toISOString(), status: 'success' });
   store.set('history', history.slice(0, 100));
-
   return { success: true, outputPath: finalOutput };
 });
 
-ipcMain.handle(IPC_CHANNELS.UNLOCK_BATCH, async (event, { files }) => {
+ipcMain.handle('convert-pdf', async (_event, opts) => {
+  try {
+    const result = await convertPdf(opts);
+    return JSON.parse(JSON.stringify({ ok: true, result }));
+  } catch (e) {
+    return { ok: false, error: e.message };
+  }
+});
+
+ipcMain.handle('unlock-batch', async (event, { files }) => {
   const outDir = getOutputDir();
   const results = [];
   if (!fs.existsSync(outDir)) fs.mkdirSync(outDir, { recursive: true });
-
   for (let i = 0; i < files.length; i++) {
     const { filePath, password } = files[i];
     const finalOutput = path.join(outDir, path.basename(filePath, '.pdf') + '_unlocked.pdf');
-
     event.sender.send('unlock-progress', { index: i, total: files.length, file: path.basename(filePath), status: 'processing' });
-
     try {
       await unlockPdf({ filePath, password, outputPath: finalOutput });
-
       const history = store.get('history', []);
       history.unshift({ file: path.basename(filePath), output: finalOutput, timestamp: new Date().toISOString(), status: 'success' });
       store.set('history', history.slice(0, 100));
-
       event.sender.send('unlock-progress', { index: i, total: files.length, file: path.basename(filePath), status: 'success', outputPath: finalOutput });
       results.push({ file: path.basename(filePath), success: true, outputPath: finalOutput });
     } catch (error) {
@@ -140,21 +127,21 @@ ipcMain.handle(IPC_CHANNELS.UNLOCK_BATCH, async (event, { files }) => {
   return results;
 });
 
-ipcMain.handle(IPC_CHANNELS.SELECT_OUTPUT_DIR, async () => {
+ipcMain.handle('select-output-dir', async () => {
   const result = await dialog.showOpenDialog(mainWindow, { properties: ['openDirectory'] });
   return result.canceled ? null : result.filePaths[0];
 });
 
-ipcMain.handle(IPC_CHANNELS.SAVE_OUTPUT_DIR, async () => {
+ipcMain.handle('save-output-dir', async () => {
   const result = await dialog.showOpenDialog(mainWindow, { properties: ['openDirectory', 'createDirectory'] });
   return result.canceled ? null : result.filePaths[0];
 });
 
-ipcMain.handle(IPC_CHANNELS.OPEN_OUTPUT_DIR, async (_event, dirPath) => {
+ipcMain.handle('open-output-dir', async (_event, dirPath) => {
   shell.openPath(dirPath);
 });
 
-ipcMain.handle(IPC_CHANNELS.COPY_FILES, async (_event, { files, destDir }) => {
+ipcMain.handle('copy-files', async (_event, { files, destDir }) => {
   if (!fs.existsSync(destDir)) fs.mkdirSync(destDir, { recursive: true });
   const results = [];
   for (const file of files) {
@@ -169,13 +156,54 @@ ipcMain.handle(IPC_CHANNELS.COPY_FILES, async (_event, { files, destDir }) => {
   return results;
 });
 
-ipcMain.handle(IPC_CHANNELS.GET_SETTINGS, () => store.store);
+ipcMain.handle('get-settings', () => store.store);
 
-ipcMain.handle(IPC_CHANNELS.SET_SETTINGS, (_event, settings) => {
+ipcMain.handle('set-settings', (_event, settings) => {
   store.set(settings);
   return store.store;
 });
 
-ipcMain.handle(IPC_CHANNELS.GET_HISTORY, () => store.get('history', []));
+ipcMain.handle('get-history', () => store.get('history', []));
 
-ipcMain.handle(IPC_CHANNELS.CLEAR_HISTORY, () => store.set('history', []));
+ipcMain.handle('clear-history', () => store.set('history', []));
+
+ipcMain.handle('select-file', async (_event, filters) => {
+  const result = await dialog.showOpenDialog(mainWindow, {
+    properties: ['openFile', 'multiSelections'],
+    filters: filters || [],
+  });
+  return result.canceled ? [] : result.filePaths;
+});
+
+ipcMain.handle('save-file-dialog', async (_event, { defaultName, filters }) => {
+  const result = await dialog.showSaveDialog(mainWindow, {
+    defaultPath: defaultName,
+    filters: filters || [],
+  });
+  return result.canceled ? null : result.filePath;
+});
+
+ipcMain.handle('compress-image', async (_event, opts) => {
+  return await compressImage(opts);
+});
+
+ipcMain.handle('convert-image', async (_event, opts) => {
+  return await convertImage(opts);
+});
+
+ipcMain.handle('resize-image', async (_event, opts) => {
+  return await resizeImage(opts);
+});
+
+ipcMain.handle('remove-background', async (_event, opts) => {
+  try {
+    const result = await removeBackground(opts);
+    return JSON.parse(JSON.stringify({ ok: true, result }));
+  } catch (e) {
+    return { ok: false, error: e.message };
+  }
+});
+
+ipcMain.handle('excel-to-csv', async (_event, opts) => {
+  return await excelToCsv(opts);
+});
