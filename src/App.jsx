@@ -189,6 +189,21 @@ export default function App() {
           </div>
         )}
       </main>
+
+      {showSettings && (
+        <SettingsModal
+          settings={settings}
+          onClose={() => setShowSettings(false)}
+          onSave={async (newSettings) => {
+            await window.pdfUnlocker.setSettings(newSettings);
+            setSettings(newSettings);
+            setOutputDir(newSettings.outputDir || '');
+            if (newSettings.theme) setTheme(newSettings.theme);
+            setShowSettings(false);
+          }}
+          onSelectOutputDir={() => window.pdfUnlocker.saveOutputDir()}
+        />
+      )}
     </div>
   );
 }

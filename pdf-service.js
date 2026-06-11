@@ -3,19 +3,26 @@ const fs = require('fs');
 const { execFile } = require('child_process');
 
 function getQpdfPath() {
-  const bundledPath = path.join(process.resourcesPath || __dirname, 'binaries', 'qpdf');
-  if (fs.existsSync(bundledPath)) return bundledPath;
-  if (process.platform === 'win32') {
-    const winBundled = path.join(process.resourcesPath || __dirname, 'binaries', 'qpdf.exe');
-    if (fs.existsSync(winBundled)) return winBundled;
+  const bases = [process.resourcesPath, __dirname].filter(Boolean);
+  for (const base of bases) {
+    for (const name of ['qpdf', 'qpdf.exe']) {
+      const candidate = path.join(base, 'binaries', name);
+      if (fs.existsSync(candidate)) return candidate;
+    }
   }
   return 'qpdf';
+}
+
+function getQpdfDir() {
+  const p = getQpdfPath();
+  return p !== 'qpdf' ? path.dirname(p) : null;
 }
 
 function checkQpdf() {
   return new Promise((resolve) => {
     const qpdfPath = getQpdfPath();
-    execFile(qpdfPath, ['--version'], (error, stdout) => {
+    const opts = getQpdfDir() ? { cwd: getQpdfDir() } : {};
+    execFile(qpdfPath, ['--version'], opts, (error, stdout) => {
       if (error) {
         resolve({ available: false, version: null, path: qpdfPath });
       } else {
@@ -28,6 +35,7 @@ function checkQpdf() {
 function unlockPdf({ filePath, password, outputPath }) {
   return new Promise((resolve, reject) => {
     const qpdfPath = getQpdfPath();
+    const opts = getQpdfDir() ? { cwd: getQpdfDir() } : {};
     const args = [
       '--decrypt',
       `--password=${password}`,
@@ -35,7 +43,7 @@ function unlockPdf({ filePath, password, outputPath }) {
       outputPath,
     ];
 
-    execFile(qpdfPath, args, (error, stdout, stderr) => {
+    execFile(qpdfPath, args, opts, (error, stdout, stderr) => {
       if (error) {
         const errMsg = stderr || error.message;
         if (errMsg.includes('incorrect password') || errMsg.includes('invalid password')) {

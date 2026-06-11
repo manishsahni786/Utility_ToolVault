@@ -72,6 +72,20 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
+  const isDev = process.argv.includes('--dev') || process.env.NODE_ENV === 'development';
+  if (!isDev) {
+    const { session } = require('electron');
+    session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+      callback({
+        responseHeaders: {
+          ...details.responseHeaders,
+          'Content-Security-Policy': [
+            "default-src 'self' 'unsafe-inline' file:; script-src 'self' 'unsafe-inline' file:; style-src 'self' 'unsafe-inline'; img-src 'self' data: file:; font-src 'self' data:;",
+          ],
+        },
+      });
+    });
+  }
   createWindow();
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();

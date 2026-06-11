@@ -43,7 +43,7 @@ export default function SettingsModal({ settings, onClose, onSave, onSelectOutpu
               <input type="text" value={local.outputDir || ''} readOnly
                      placeholder="Use default (~/Documents/Unlocked PDFs)"
                      className="input-field text-xs flex-1 truncate" />
-              <button onClick={onSelectOutputDir} className="btn-secondary text-xs whitespace-nowrap">Browse</button>
+              <button onClick={async () => { const dir = await onSelectOutputDir(); if (dir) setLocal({ ...local, outputDir: dir }); }} className="btn-secondary text-xs whitespace-nowrap">Browse</button>
             </div>
             {local.outputDir && (
               <button onClick={() => setLocal({ ...local, outputDir: null })}
