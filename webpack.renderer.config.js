@@ -48,6 +48,7 @@ module.exports = {
       filename: 'styles.[contenthash].css',
     }),
   ],
+  performance: { hints: false },
   devServer: {
     port: 3000,
     hot: true,

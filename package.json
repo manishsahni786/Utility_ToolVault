@@ -1,7 +1,7 @@
 {
-  "name": "manish-pdf-unlocker",
-  "version": "1.0.0",
-  "description": "Offline-first desktop app to remove password protection from PDF files",
+  "name": "utility-toolvault",
+  "version": "2.0.0",
+  "description": "Utility ToolVault — Offline-first desktop utility toolkit with 18 tools across 6 categories.",
   "main": "main.js",
   "scripts": {
     "start": "npm run build:renderer && electron .",
@@ -14,8 +14,8 @@
     "build:linux": "npm run build:renderer && electron-builder --linux"
   },
   "build": {
-    "appId": "com.manish.pdf-unlocker",
-    "productName": "Manish PDF Unlocker",
+    "appId": "com.manish.utilitytoolvault",
+    "productName": "Utility ToolVault",
     "directories": {
       "output": "release"
     },
@@ -24,6 +24,10 @@
       "preload.js",
       "ipc-channels.js",
       "pdf-service.js",
+      "pdf-renderer.js",
+      "image-service.js",
+      "background-remover.js",
+      "data-service.js",
       "dist/**/*",
       "package.json"
     ],
@@ -61,13 +65,24 @@
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true
-    }
+    },
+    "npmRebuild": false
   },
   "dependencies": {
+    "bwip-js": "^4.11.1",
+    "diff": "^9.0.0",
+    "docx": "^9.7.1",
     "electron-store": "^8.1.0",
     "electron-updater": "^6.1.0",
+    "marked": "^5.1.2",
+    "pdf-lib": "^1.17.1",
+    "pdfjs-dist": "^3.11.174",
+    "qrcode": "^1.5.4",
     "react": "^18.2.0",
-    "react-dom": "^18.2.0"
+    "react-colorful": "^5.7.0",
+    "react-dom": "^18.2.0",
+    "sharp": "^0.32.6",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@babel/core": "^7.24.0",
@@ -80,6 +95,7 @@
     "css-loader": "^6.10.0",
     "electron": "^28.2.0",
     "electron-builder": "^24.13.0",
+    "electron-rebuild": "^3.2.9",
     "html-webpack-plugin": "^5.6.0",
     "mini-css-extract-plugin": "^2.8.0",
     "postcss": "^8.4.35",
