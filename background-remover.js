@@ -1,82 +1,73 @@
-const { BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
 const fs = require('fs');
-
-let hiddenWin = null;
-let ready = false;
-let pendingResolve = null;
-let pendingReject = null;
-let listenerReady = false;
-
-const CHANNEL = '__bg_remove_result';
-
-function ensureListener() {
-  if (listenerReady) return;
-  ipcMain.on(CHANNEL, (_event, result) => {
-    if (result.__error) {
-      if (pendingReject) pendingReject(new Error(result.message));
-    } else {
-      if (pendingResolve) pendingResolve(result.outPath);
-    }
-    pendingResolve = null;
-    pendingReject = null;
-  });
-  listenerReady = true;
-}
-
-async function init() {
-  if (hiddenWin && !hiddenWin.isDestroyed()) {
-    if (!ready) await new Promise(r => setTimeout(r, 100));
-    return;
-  }
-  hiddenWin = new BrowserWindow({
-    show: false,
-    webPreferences: { nodeIntegration: true, contextIsolation: false },
-  });
-  await hiddenWin.loadURL('about:blank');
-  await hiddenWin.webContents.executeJavaScript(`
-    const { removeBackground } = require('@imgly/background-removal');
-    const fs = require('fs');
-    const { ipcRenderer } = require('electron');
-    window._processFile = async function(filePath, outPath) {
-      try {
-        const blob = await removeBackground(filePath);
-        const buf = Buffer.from(await blob.arrayBuffer());
-        fs.writeFileSync(outPath, buf);
-        ipcRenderer.send('${CHANNEL}', { outPath });
-      } catch(e) {
-        ipcRenderer.send('${CHANNEL}', { __error: true, message: e.message || 'Unknown error' });
-      }
-    };
-  `);
-  ready = true;
-}
+const sharp = require('sharp');
 
 async function removeBackground(filePath, outPath) {
-  await init();
-  ensureListener();
-  return new Promise((resolve, reject) => {
-    pendingResolve = resolve;
-    pendingReject = reject;
-    hiddenWin.webContents.executeJavaScript(
-      `window._processFile(${JSON.stringify(filePath)}, ${JSON.stringify(outPath)})`
-    );
-    setTimeout(() => {
-      if (pendingResolve) {
-        pendingResolve = null;
-        pendingReject = null;
-        reject(new Error('Background removal timed out'));
-      }
-    }, 60000);
-  });
-}
+  const meta = await sharp(filePath).metadata();
+  const { width, height } = meta;
 
-function destroy() {
-  if (hiddenWin && !hiddenWin.isDestroyed()) {
-    hiddenWin.destroy();
-    hiddenWin = null;
-    ready = false;
+  // Sample corners to find background color
+  const cornerSize = Math.min(5, Math.floor(Math.min(width, height) / 4));
+  const corners = [
+    { left: 0, top: 0 },
+    { left: width - cornerSize, top: 0 },
+    { left: 0, top: height - cornerSize },
+    { left: width - cornerSize, top: height - cornerSize },
+  ];
+
+  let rSum = 0, gSum = 0, bSum = 0, count = 0;
+  for (const c of corners) {
+    const buf = await sharp(filePath)
+      .extract({ left: c.left, top: c.top, width: cornerSize, height: cornerSize })
+      .raw()
+      .toBuffer();
+    const channels = buf.length / (cornerSize * cornerSize);
+    for (let i = 0; i < buf.length; i += channels) {
+      rSum += buf[i]; gSum += buf[i + 1]; bSum += buf[i + 2];
+      count++;
+    }
   }
+
+  const bgR = Math.round(rSum / count);
+  const bgG = Math.round(gSum / count);
+  const bgB = Math.round(bSum / count);
+
+  const rgbaBuffer = await sharp(filePath).ensureAlpha().raw().toBuffer();
+  const outputBuffer = Buffer.alloc(rgbaBuffer.length);
+  let threshold = 50;
+
+  // Calculate variance for adaptive threshold
+  let varianceSum = 0;
+  const sampleCount = Math.min(100, count);
+  for (let i = 0; i < sampleCount; i++) {
+    const idx = Math.floor(Math.random() * count) * 3;
+    const dr = Math.abs(rgbaBuffer[idx * 4] - bgR);
+    const dg = Math.abs(rgbaBuffer[idx * 4 + 1] - bgG);
+    const db = Math.abs(rgbaBuffer[idx * 4 + 2] - bgB);
+    varianceSum += Math.sqrt(dr * dr + dg * dg + db * db);
+  }
+  threshold = Math.max(30, Math.min(80, varianceSum / sampleCount * 1.5));
+
+  for (let i = 0; i < rgbaBuffer.length; i += 4) {
+    const dr = Math.abs(rgbaBuffer[i] - bgR);
+    const dg = Math.abs(rgbaBuffer[i + 1] - bgG);
+    const db = Math.abs(rgbaBuffer[i + 2] - bgB);
+    const dist = Math.sqrt(dr * dr + dg * dg + db * db);
+    if (dist < threshold) {
+      outputBuffer[i] = rgbaBuffer[i];
+      outputBuffer[i + 1] = rgbaBuffer[i + 1];
+      outputBuffer[i + 2] = rgbaBuffer[i + 2];
+      outputBuffer[i + 3] = Math.max(0, Math.min(255, Math.round((dist / threshold) * 255)));
+    } else {
+      outputBuffer[i] = rgbaBuffer[i];
+      outputBuffer[i + 1] = rgbaBuffer[i + 1];
+      outputBuffer[i + 2] = rgbaBuffer[i + 2];
+      outputBuffer[i + 3] = 255;
+    }
+  }
+
+  await sharp(outputBuffer, { raw: { width, height, channels: 4 } }).png().toFile(outPath);
+  return { success: true, outputPath: outPath };
 }
 
-module.exports = { removeBackground, destroy };
+module.exports = { removeBackground };

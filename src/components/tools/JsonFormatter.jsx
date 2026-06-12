@@ -5,18 +5,27 @@ export default function JsonFormatter() {
   const [input, setInput] = useState('');
   const [output, setOutput] = useState('');
   const [error, setError] = useState('');
+  const [isValid, setIsValid] = useState(false);
   const [minified, setMinified] = useState(false);
 
   const process = () => {
-    if (!input.trim()) { setOutput(''); setError(''); return; }
+    if (!input.trim()) { setOutput(''); setError(''); setIsValid(false); return; }
     try {
       const parsed = JSON.parse(input);
       setOutput(JSON.stringify(parsed, null, minified ? 0 : 2));
       setError('');
+      setIsValid(true);
     } catch (e) {
       setError(e.message);
       setOutput('');
+      setIsValid(false);
     }
+  };
+
+  const handleInputChange = (val) => {
+    setInput(val);
+    setIsValid(false);
+    setError('');
   };
 
   const copy = () => navigator.clipboard?.writeText(output);
@@ -24,7 +33,7 @@ export default function JsonFormatter() {
   return (
     <ToolLayout title="JSON Formatter & Validator" description="Format, validate, and beautify raw JSON data with error highlighting.">
       <InputPanel label="Input JSON">
-        <textarea value={input} onChange={e => setInput(e.target.value)} rows={8}
+        <textarea value={input} onChange={e => handleInputChange(e.target.value)} rows={8}
           className="input-field text-xs font-mono w-full resize-none" placeholder='Paste your JSON here...' spellCheck={false} />
         <div className="flex items-center gap-2 mt-3">
           <button onClick={process} className="btn-primary text-sm px-5 py-2">Format & Validate</button>
@@ -35,9 +44,24 @@ export default function JsonFormatter() {
         </div>
       </InputPanel>
 
+      {isValid && !error && (
+        <div className="mb-4 p-3 bg-emerald-50 dark:bg-emerald-900/15 border border-emerald-200 dark:border-emerald-700/30 rounded-xl text-emerald-700 dark:text-emerald-400 text-xs font-semibold flex items-center gap-2">
+          <svg className="w-4 h-4 text-emerald-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          JSON is valid!
+        </div>
+      )}
+
       {error && (
-        <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/15 border border-red-200 dark:border-red-700/30 rounded-xl text-red-600 dark:text-red-400 text-xs font-mono">
-          {error}
+        <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/15 border border-red-200 dark:border-red-700/30 rounded-xl text-red-600 dark:text-red-400 text-xs font-mono flex items-start gap-2">
+          <svg className="w-4 h-4 text-red-500 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+          </svg>
+          <div>
+            <span className="font-semibold block mb-0.5">Invalid JSON:</span>
+            <span>{error}</span>
+          </div>
         </div>
       )}
 

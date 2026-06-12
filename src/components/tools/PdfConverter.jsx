@@ -43,7 +43,17 @@ export default function PdfConverter() {
       setResults(allResults[0]);
       if (!allResults[0].fileSuccess) setError(allResults[0].error);
     } else {
-      setResults({ batch: true, items: allResults, outputDir: null, files: [] });
+      const batchFiles = [];
+      let firstOutputDir = null;
+      for (const res of allResults) {
+        if (res.fileSuccess && res.files) {
+          batchFiles.push(...res.files);
+          if (!firstOutputDir && res.outputDir) {
+            firstOutputDir = res.outputDir;
+          }
+        }
+      }
+      setResults({ batch: true, items: allResults, outputDir: firstOutputDir, files: batchFiles });
     }
     if (hasError && allResults.length > 1) setError('Some files failed to convert. See details below.');
     setConverting(false);
@@ -186,7 +196,25 @@ export default function PdfConverter() {
       )}
       {results && results.batch && (
         <div className="card p-4">
-          <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Results</h3>
+          <div className="flex items-center justify-between mb-3 pb-3 border-b border-gray-100 dark:border-gray-750/30">
+            <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Results</h3>
+            {results.files && results.files.length > 0 && (
+              <div className="flex items-center gap-2">
+                <button onClick={saveToFolder} className="btn-secondary text-xs px-3.5 py-2 flex items-center gap-1.5">
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+                  </svg>
+                  Save To...
+                </button>
+                <button onClick={openFolder} className="btn-primary text-xs px-3.5 py-2 flex items-center gap-1.5">
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12.75V12A2.25 2.25 0 014.5 9.75h15A2.25 2.25 0 0121.75 12v.75m-8.69-6.44l-2.12-2.12a1.5 1.5 0 00-1.061-.44H4.5A2.25 2.25 0 002.25 6v12a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9a2.25 2.25 0 00-2.25-2.25h-5.379a1.5 1.5 0 01-1.06-.44z" />
+                  </svg>
+                  Open Folder
+                </button>
+              </div>
+            )}
+          </div>
           <div className="space-y-2">
             {results.items.map((item, i) => (
               <div key={i} className="flex items-center gap-2 text-sm p-2 rounded-xl bg-gray-50 dark:bg-gray-900/30">

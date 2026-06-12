@@ -20,6 +20,7 @@ async function init() {
       require('pdfjs-dist/build/pdf.worker.entry');
       const pdfjsLib = require('pdfjs-dist/legacy/build/pdf.js');
       const fs = require('fs');
+      const path = require('path');
       window._execSafe = function(fn) {
         try {
           return fn().catch(function(e) {
@@ -57,6 +58,7 @@ async function init() {
         }
         return files;
       };
+      true;
     `);
   })();
   await initPromise;

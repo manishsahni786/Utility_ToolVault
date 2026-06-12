@@ -108,3 +108,103 @@
 .animate-fade-in { animation: fade-in 0.2s ease-out; }
 .animate-slide-up { animation: slide-up 0.25s ease-out; }
 .animate-scale-in { animation: scale-in 0.2s ease-out; }
+
+/* Markdown Previewer styling rules */
+.markdown-preview {
+  color: #374151; /* light mode text */
+  line-height: 1.6;
+}
+.dark .markdown-preview {
+  color: #e5e7eb; /* dark mode text */
+}
+.markdown-preview h1 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin-top: 1rem;
+  margin-bottom: 0.5rem;
+  color: #111827;
+}
+.dark .markdown-preview h1 {
+  color: #f9fafb;
+}
+.markdown-preview h2 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin-top: 0.875rem;
+  margin-bottom: 0.5rem;
+  color: #1f2937;
+}
+.dark .markdown-preview h2 {
+  color: #f3f4f6;
+}
+.markdown-preview h3 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-top: 0.75rem;
+  margin-bottom: 0.5rem;
+  color: #374151;
+}
+.dark .markdown-preview h3 {
+  color: #e5e7eb;
+}
+.markdown-preview p {
+  margin-top: 0;
+  margin-bottom: 0.75rem;
+}
+.markdown-preview a {
+  color: #06b6d4; /* accent color */
+  text-decoration: underline;
+}
+.markdown-preview code {
+  font-family: monospace;
+  background-color: #f3f4f6;
+  padding: 0.125rem 0.25rem;
+  border-radius: 0.25rem;
+  font-size: 0.875em;
+  color: #ef4444; /* red for inline code */
+}
+.dark .markdown-preview code {
+  background-color: #1e293b;
+  color: #f87171;
+}
+.markdown-preview pre {
+  background-color: #f3f4f6;
+  padding: 0.75rem;
+  border-radius: 0.5rem;
+  overflow-x: auto;
+  margin-bottom: 0.75rem;
+}
+.dark .markdown-preview pre {
+  background-color: #1e293b;
+}
+.markdown-preview pre code {
+  background-color: transparent;
+  padding: 0;
+  border-radius: 0;
+  color: inherit;
+}
+.markdown-preview ul {
+  list-style-type: disc;
+  padding-left: 1.5rem;
+  margin-bottom: 0.75rem;
+}
+.markdown-preview ol {
+  list-style-type: decimal;
+  padding-left: 1.5rem;
+  margin-bottom: 0.75rem;
+}
+.markdown-preview li {
+  margin-bottom: 0.25rem;
+}
+.markdown-preview blockquote {
+  border-left: 4px solid #e5e7eb;
+  padding-left: 1rem;
+  color: #6b7280;
+  font-style: italic;
+  margin-bottom: 0.75rem;
+}
+.dark .markdown-preview blockquote {
+  border-left-color: #374151;
+  color: #9ca3af;
+}
+

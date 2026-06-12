@@ -115,7 +115,14 @@ async function convertPdf({ filePath, format, pageRange }) {
     const docxPath = path.join(outDir, baseName + '.docx');
     const buffer = await Packer.toBuffer(wordDoc);
     fs.writeFileSync(docxPath, buffer);
-    return { success: true, pages: pagesToConvert.length, outputDir, format: 'docx', files: [docxPath] };
+    for (const f of pngFiles) {
+      try {
+        if (fs.existsSync(f)) fs.unlinkSync(f);
+      } catch (e) {
+        console.error('Failed to delete intermediate file:', f, e);
+      }
+    }
+    return { success: true, pages: pagesToConvert.length, outputDir: outDir, format: 'docx', files: [docxPath] };
   }
 
   const outFormat = format;
@@ -134,7 +141,7 @@ async function convertPdf({ filePath, format, pageRange }) {
       finalFiles.push(outPath);
     }
   }
-  return { success: true, pages: finalFiles.length, outputDir, format: outFormat, files: finalFiles };
+  return { success: true, pages: finalFiles.length, outputDir: outDir, format: outFormat, files: finalFiles };
 }
 
 module.exports = { checkQpdf, unlockPdf, convertPdf };
